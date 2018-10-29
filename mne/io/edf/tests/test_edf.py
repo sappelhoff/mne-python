@@ -119,17 +119,24 @@ def test_edf_reduced():
                      verbose='error')
 
 
+@pytest.fixture()
+def my_already_loaded_raw(scope='session'):
+    return read_raw_edf(edf_path, stim_channel='auto', preload=True)
+
+
+def test_orig_units(my_already_loaded_raw):
+    """Test exposure of original channel units."""
+    orig_units = my_already_loaded_raw._orig_units
+    assert len(orig_units) == 140
+    assert orig_units['A1'] == u'µV'  # formerly 'uV' edit by _check_orig_units
+
+
 def test_edf_data():
     """Test edf files."""
     raw = _test_raw_reader(read_raw_edf, input_fname=edf_path,
                            stim_channel=None, exclude=['Ergo-Left', 'H10'],
                            verbose='error')
     raw_py = read_raw_edf(edf_path, stim_channel='auto', preload=True)
-
-    # Test original units
-    orig_units = raw_py._orig_units
-    assert len(orig_units) == 140
-    assert orig_units['A1'] == u'µV'  # formerly 'uV' edit by _check_orig_units
 
     assert_equal(len(raw.ch_names) + 2, len(raw_py.ch_names))
     # Test saving and loading when annotations were parsed.
