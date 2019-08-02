@@ -90,6 +90,15 @@ TEST_CASES = np.array([
     'names': ['content', 'meas_date', 'meas_date_repr'],
     'formats': [object, object, 'U22']
 }))
+# @pytest.mark.parametrize('newstring, expected', [
+#     ('Mk1=New Segment,,1,1,0,20131113161403794232\n', '2013-11-13 16:14:03 GMT'),  # noqa: E501
+#     ('Mk1=New Segment,,1,1,0,20070716122240937454\nMk2=New Segment,,2,1,0,20070716122240937455\n', '2007-07-16 12:22:40 GMT'),  # noqa: E501
+#     ('Mk1=STATUS,,1,1,0\n', 'unspecified'),
+#     ('Mk1=New Segment,,1,1,0,\n', 'unspecified'),
+#     ('Mk1=New Segment,,1,1,0\n', 'unspecified'),
+#     ('Mk1=New Segment,,1,1,0,00000000000304125000', 'unspecified'),
+#     ('Mk1=New Segment,,1,1,0,\nMk2=New Segment,,2,1,0,20070716122240937454\n', '2007-07-16 12:22:40 GMT'),  # noqa: E501
+# ])
 
 @pytest.fixture(scope='session')
 def _mocked_meas_date_data(tmpdir_factory):
@@ -136,19 +145,13 @@ def mocked_meas_date_file(_mocked_meas_date_data, request):
 def test_meas_date(mocked_meas_date_file):
     """Test successful extraction of measurement date."""
     raw = read_raw_brainvision(mocked_meas_date_file['vhdr_fname'])
-    # assert_allclose(raw.info['meas_date'],
-    #                 mocked_meas_date_file['expected_meas_date'])
     assert mocked_meas_date_file['expected_meas_date_repr'] in repr(raw.info)
+    if mocked_meas_date_file['expected_meas_date'] is None:
+        assert raw.info['meas_date'] is None
+    else:
+        assert_allclose(raw.info['meas_date'],
+                        mocked_meas_date_file['expected_meas_date'])
 
-# @pytest.mark.parametrize('newstring, expected', [
-#     ('Mk1=New Segment,,1,1,0,20131113161403794232\n', '2013-11-13 16:14:03 GMT'),  # noqa: E501
-#     ('Mk1=New Segment,,1,1,0,20070716122240937454\nMk2=New Segment,,2,1,0,20070716122240937455\n', '2007-07-16 12:22:40 GMT'),  # noqa: E501
-#     ('Mk1=STATUS,,1,1,0\n', 'unspecified'),
-#     ('Mk1=New Segment,,1,1,0,\n', 'unspecified'),
-#     ('Mk1=New Segment,,1,1,0\n', 'unspecified'),
-#     ('Mk1=New Segment,,1,1,0,00000000000304125000', 'unspecified'),
-#     ('Mk1=New Segment,,1,1,0,\nMk2=New Segment,,2,1,0,20070716122240937454\n', '2007-07-16 12:22:40 GMT'),  # noqa: E501
-# ])
 
 
 def test_vhdr_codepage_ansi():
