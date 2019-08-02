@@ -79,8 +79,8 @@ def test_orig_units(recwarn):
 
 TEST_CASES = np.array([
     ('Mk1=New Segment,,1,1,0,20131113161403794232\n',  # content
-        [1384359243, 794231],  # meas_date internal representation
-        '2013-11-13 16:14:03 GMT'),  # meas_date representation
+     [1384359243, 794231],  # meas_date internal representation
+     '2013-11-13 16:14:03 GMT'),  # meas_date representation
 
     ('Mk1=STATUS,,1,1,0\n', None, 'unspecified'),
     ('Mk1=New Segment,,1,1,0,\n', None, 'unspecified'),
@@ -92,9 +92,8 @@ TEST_CASES = np.array([
 }))
 
 @pytest.fixture(scope='session')
-def mocked_meas_date_file(tmpdir_factory):
-    """Return vmrk text and index of New Segment line for date tests."""
-    MEAS_DATE_LINE = 11
+def _mocked_meas_date_data(tmpdir_factory):
+    """Helper funct. preparing the files for mocked_meas_date_file fixture."""
 
     # Prepare the files
     tmpdir = str(tmpdir_factory.mktemp('brainvision_mocked_meas_date'))
@@ -109,35 +108,37 @@ def mocked_meas_date_file(tmpdir_factory):
     with open(vmrk_path, 'r') as fin:
         lines = fin.readlines()
 
-    for current_test in TEST_CASES:
-        lines[MEAS_DATE_LINE] = current_test['content']
-        with open(vmrk_fname, 'w') as fout:
-            fout.writelines(lines)
+    return {'vhdr_fname': vhdr_fname, 'vmrk_fname': vmrk_fname,
+            'eeg_fname': eeg_fname, 'lines': lines}
 
-        yield dict(vhdr_fname=vhdr_fname,
-                   vmrk_fname=vmrk_fname,
-                   eeg_fname=eeg_fname,
-                   expected_meas_date=current_test['meas_date'],
-                   expected_meas_date_repr=current_test['meas_date_repr'])
 
 @pytest.fixture(scope='session', params=[tt for tt in TEST_CASES])
-def foo(request):
-    param = request.param
-    yield param
+def mocked_meas_date_file(_mocked_meas_date_data, request):
+    """Return vmrk text and index of New Segment line for date tests."""
+    MEAS_DATE_LINE = 11
 
-def test_foo(foo):
-    # import pdb; pdb.set_trace()
-    print(foo)
-    pass
+    vhdr_fname = _mocked_meas_date_data['vhdr_fname']
+    vmrk_fname = _mocked_meas_date_data['vmrk_fname']
+    eeg_fname = _mocked_meas_date_data['eeg_fname']
+    lines = _mocked_meas_date_data['lines']
+
+    lines[MEAS_DATE_LINE] = request.param['content']
+    with open(vmrk_fname, 'w') as fout:
+        fout.writelines(lines)
+
+    yield dict(vhdr_fname=vhdr_fname,
+               vmrk_fname=vmrk_fname,
+               eeg_fname=eeg_fname,
+               expected_meas_date=request.param['meas_date'],
+               expected_meas_date_repr=request.param['meas_date_repr'])
+
 
 def test_meas_date(mocked_meas_date_file):
     """Test successful extraction of measurement date."""
-    for kk, vv in mocked_meas_date_file.items():
-        print(kk, vv)
-    # raw = read_raw_brainvision(mocked_meas_date_file['vhdr_fname'])
+    raw = read_raw_brainvision(mocked_meas_date_file['vhdr_fname'])
     # assert_allclose(raw.info['meas_date'],
     #                 mocked_meas_date_file['expected_meas_date'])
-    # assert mocked_meas_date_file['expected_meas_date_repr'] in repr(raw.info)
+    assert mocked_meas_date_file['expected_meas_date_repr'] in repr(raw.info)
 
 # @pytest.mark.parametrize('newstring, expected', [
 #     ('Mk1=New Segment,,1,1,0,20131113161403794232\n', '2013-11-13 16:14:03 GMT'),  # noqa: E501
