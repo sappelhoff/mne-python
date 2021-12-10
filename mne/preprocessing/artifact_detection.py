@@ -548,6 +548,7 @@ def annotate_break(raw, events=None,
         break_durations.append(duration)
 
     # Finally, create the break annotations
+    # XXX: Probably needs some fix too
     break_annotations = Annotations(
         onset=break_onsets,
         duration=break_durations,
