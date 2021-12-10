@@ -67,6 +67,7 @@ def annotate_muscle_zscore(raw, threshold=4, ch_type=None, min_length_good=0.1,
     from scipy.ndimage import label
 
     raw_copy = raw.copy()
+    orig_time = raw.info['meas_date']
 
     if ch_type is None:
         raw_ch_type = raw_copy.get_channel_types()
@@ -92,7 +93,8 @@ def annotate_muscle_zscore(raw, threshold=4, ch_type=None, min_length_good=0.1,
                     pad="reflect_limited", n_jobs=n_jobs)
     raw_copy.apply_hilbert(envelope=True, n_jobs=n_jobs)
 
-    data = raw_copy.get_data(reject_by_annotation="NaN")
+    data, times = raw_copy.get_data(reject_by_annotation="NaN",
+                                    return_times=True)
     nan_mask = ~np.isnan(data[0])
     sfreq = raw_copy.info['sfreq']
 
@@ -116,8 +118,10 @@ def annotate_muscle_zscore(raw, threshold=4, ch_type=None, min_length_good=0.1,
         if len(l_idx) < min_samps:
             art_mask[l_idx] = True
 
-    annot = _annotations_from_mask(raw_copy.times, art_mask, 'BAD_muscle',
-                                   orig_time=raw.info['meas_date'])
+    if orig_time is not None:
+        times += raw._first_time
+    annot = _annotations_from_mask(times, art_mask, 'BAD_muscle',
+                                   orig_time=orig_time)
 
     return annot, scores_muscle
 
@@ -166,7 +170,7 @@ def annotate_movement(raw, pos, rotation_velocity_limit=None,
     hp_ts = pos[:, 0].copy()
     orig_time = raw.info['meas_date']
     if orig_time is None:
-        hp_ts -= raw.first_samp / sfreq
+        hp_ts -= raw._first_time
     dt = np.diff(hp_ts)
     hp_ts = np.concatenate([hp_ts, [hp_ts[-1] + 1. / sfreq]])
 

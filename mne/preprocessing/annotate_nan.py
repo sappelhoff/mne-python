@@ -25,6 +25,9 @@ def annotate_nan(raw, *, verbose=None):
         New channel-specific annotations for the data.
     """
     data, times = raw.get_data(return_times=True)
+    orig_time = raw.info['meas_date']
+    if orig_time is not None:
+        times += raw._first_time
     onsets, durations, ch_names = list(), list(), list()
     for row, ch_name in zip(data, raw.ch_names):
         annot = _annotations_from_mask(times, np.isnan(row), 'BAD_NAN')
@@ -32,5 +35,5 @@ def annotate_nan(raw, *, verbose=None):
         durations.extend(annot.duration)
         ch_names.extend([[ch_name]] * len(annot))
     annot = Annotations(onsets, durations, 'BAD_NAN', ch_names=ch_names,
-                        orig_time=raw.info['meas_date'])
+                        orig_time=orig_time)
     return annot
