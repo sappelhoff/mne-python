@@ -5,6 +5,7 @@
 import os
 import shutil
 import sys
+import warnings
 from copy import deepcopy
 from unittest.mock import Mock
 
@@ -940,3 +941,30 @@ def test_lazy_vs_preload_all_formats(fname):
 
     # Verify annotations are present
     assert len(raw_lazy.annotations) == len(raw_preload.annotations)
+
+
+@testing.requires_testing_data
+def test_eeglab_eog_montage():
+    """Test reading EEGLAB files with EOG channels and montage locations."""
+    # 1. Test read_raw_eeglab with eog parameter and channel locations
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error", message=".*setting position.*")
+        warnings.filterwarnings("ignore", message=".*boundary.*")
+        raw = read_raw_eeglab(raw_fname_chanloc, eog=["Fp1", "Fp2"], preload=True)
+
+    assert raw.get_channel_types()[:2] == ["eog", "eog"]
+    assert raw.get_channel_types()[2] == "eeg"
+    mon = raw.get_montage()
+    assert mon is not None
+    assert "Fp1" not in mon.ch_names
+    assert "Fp2" not in mon.ch_names
+    assert "F7" in mon.ch_names
+
+    # 2. Test read_epochs_eeglab with eog parameter
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error", message=".*setting position.*")
+        warnings.filterwarnings("ignore", message=".*multiple events.*")
+        epochs = read_epochs_eeglab(epochs_fname_mat, eog=["FP1"])
+
+    assert epochs.get_channel_types()[0] == "eog"
+    assert epochs.get_channel_types()[1] == "eeg"
