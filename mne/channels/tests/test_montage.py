@@ -2113,6 +2113,83 @@ def test_montage_add_fiducials():
     assert all([d["kind"] != FIFF.FIFFV_POINT_CARDINAL for d in montage.dig])
 
 
+def test_dig_montage_drop_channels():
+    """Test dropping channels from DigMontage."""
+    rng = np.random.default_rng(0)
+    pos = rng.random((4, 3))
+    ch_pos = dict(zip(["Fz", "Cz", "Pz", "Oz"], pos))
+    fiducials = dict(nasion=[0.0, 1.0, 0.0], lpa=[-1.0, 0.0, 0.0], rpa=[1.0, 0.0, 0.0])
+    hsp = np.full((2, 3), 10.0)
+    mon = make_dig_montage(ch_pos=ch_pos, hsp=hsp, **fiducials)
+    assert len(mon.ch_names) == 4
+    assert len(_get_dig_eeg(mon.dig)) == 4
+    orig_fids = [d for d in mon.dig if d["kind"] == FIFF.FIFFV_POINT_CARDINAL]
+    orig_hsp = [d for d in mon.dig if d["kind"] == FIFF.FIFFV_POINT_EXTRA]
+
+    # test drop single channel as str
+    res = mon.drop_channels("Oz")
+    assert res is mon  # in-place
+    assert mon.ch_names == ["Fz", "Cz", "Pz"]
+    assert list(mon._get_ch_pos().keys()) == ["Fz", "Cz", "Pz"]
+    assert len(_get_dig_eeg(mon.dig)) == 3
+    assert_allclose([d["r"] for d in _get_dig_eeg(mon.dig)], pos[:3])
+
+    # test drop list of channels
+    mon.drop_channels(["Cz"])
+    assert mon.ch_names == ["Fz", "Pz"]
+    assert list(mon._get_ch_pos().keys()) == ["Fz", "Pz"]
+    assert len(_get_dig_eeg(mon.dig)) == 2
+    assert_allclose([d["r"] for d in _get_dig_eeg(mon.dig)], pos[[0, 2]])
+
+    # test drop set of channels
+    mon.drop_channels({"Pz"})
+    assert mon.ch_names == ["Fz"]
+    assert len(_get_dig_eeg(mon.dig)) == 1
+
+    # fiducials and extras remain untouched
+    fids = [d for d in mon.dig if d["kind"] == FIFF.FIFFV_POINT_CARDINAL]
+    hsp_pts = [d for d in mon.dig if d["kind"] == FIFF.FIFFV_POINT_EXTRA]
+    assert fids == orig_fids
+    assert hsp_pts == orig_hsp
+
+    # test dropping all channels is allowed and leaves 0 EEG channels
+    mon.drop_channels(["Fz"])
+    assert mon.ch_names == []
+    assert len(_get_dig_eeg(mon.dig)) == 0
+    assert len([d for d in mon.dig if d["kind"] == FIFF.FIFFV_POINT_CARDINAL]) == 3
+
+    # test remove_fiducials on the montage
+    res_fids = mon.remove_fiducials()
+    assert res_fids is mon
+    assert [d for d in mon.dig if d["kind"] == FIFF.FIFFV_POINT_CARDINAL] == []
+    assert [d for d in mon.dig if d["kind"] == FIFF.FIFFV_POINT_EXTRA] == orig_hsp
+
+    # error handling: invalid input types
+    mon2 = make_dig_montage(ch_pos=ch_pos, **fiducials)
+    with pytest.raises(ValueError, match="'ch_names' must be iterable"):
+        mon2.drop_channels(123)
+    with pytest.raises(ValueError, match="Each element in 'ch_names' must be str"):
+        mon2.drop_channels(["Fz", 123])
+
+    # missing channels handling
+    with pytest.raises(ValueError, match=r"Channel\(s\) nonexistent not found"):
+        mon2.drop_channels(["nonexistent"])
+    with pytest.warns(RuntimeWarning, match=r"Channel\(s\) nonexistent not found"):
+        mon2.drop_channels(["nonexistent", "Fz"], on_missing="warn")
+    assert mon2.ch_names == ["Cz", "Pz", "Oz"]
+
+    # on_missing='ignore' and empty drop list
+    mon2.drop_channels([])
+    assert mon2.ch_names == ["Cz", "Pz", "Oz"]
+    mon2.drop_channels(["another_missing", "Cz"], on_missing="ignore")
+    assert mon2.ch_names == ["Pz", "Oz"]
+
+    # verify set_montage works with the pruned montage
+    info = create_info(ch_names=["Pz", "Oz"], sfreq=1000.0, ch_types="eeg")
+    info.set_montage(mon2)
+    assert_allclose(info["chs"][0]["loc"][:3], mon2.get_positions()["ch_pos"]["Pz"])
+
+
 def test_read_dig_localite(tmp_path):
     """Test reading Localite .csv file."""
     contents = """#,id,x,y,z
