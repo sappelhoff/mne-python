@@ -878,6 +878,63 @@ class DigMontage:
         mask = [d["kind"] == FIFF.FIFFV_POINT_CARDINAL for d in self.dig]
         return self._remove_dig_points(mask)
 
+    @fill_doc_static("on_missing_ch_names")
+    def drop_channels(self, ch_names, on_missing="raise"):
+        """Drop channel(s).
+
+        Parameters
+        ----------
+        ch_names : iterable or str
+            Iterable (e.g. list) of channel name(s) or channel name to remove.
+        on_missing : 'raise' | 'warn' | 'ignore'
+            Can be ``'raise'`` (default) to raise an error, ``'warn'`` to emit a
+            warning, or ``'ignore'`` to ignore
+            when entries in ch_names are not present in the raw instance.
+
+            .. versionadded:: 0.23.0
+
+        Returns
+        -------
+        inst : instance of DigMontage
+            The modified instance.
+
+        See Also
+        --------
+        rename_channels
+        remove_fiducials
+
+        Notes
+        -----
+        .. versionadded:: 1.14
+        """
+        if isinstance(ch_names, str):
+            ch_names = [ch_names]
+
+        try:
+            all_str = all([isinstance(ch, str) for ch in ch_names])
+        except TypeError:
+            raise ValueError(
+                f"'ch_names' must be iterable, got type {type(ch_names)} ({ch_names})."
+            )
+
+        if not all_str:
+            raise ValueError(
+                "Each element in 'ch_names' must be str, got "
+                f"{[type(ch) for ch in ch_names]}."
+            )
+
+        missing = [ch for ch in ch_names if ch not in self.ch_names]
+        if len(missing) > 0:
+            msg = f"Channel(s) {', '.join(missing)} not found, nothing dropped."
+            _on_missing(on_missing, msg)
+
+        drop_chs = set(ch for ch in ch_names if ch in self.ch_names)
+        dig_names = self._get_dig_names()
+        mask = [name in drop_chs for name in dig_names]
+        self._remove_dig_points(mask)
+        self.ch_names = [ch for ch in self.ch_names if ch not in drop_chs]
+        return self
+
 
 VALID_SCALES = dict(mm=1e-3, cm=1e-2, m=1)
 
