@@ -2113,6 +2113,28 @@ def test_montage_add_fiducials():
     assert all([d["kind"] != FIFF.FIFFV_POINT_CARDINAL for d in montage.dig])
 
 
+def test_dig_montage_drop_channels():
+    """Test dropping channels from DigMontage."""
+    mon = _make_toy_dig_montage(3, nasion=[0, 1, 0])
+    assert mon.drop_channels("a") is mon
+    assert mon.ch_names == ["b", "c"]
+    assert len(_get_dig_eeg(mon.dig)) == 2
+    assert len(mon.dig) == 3  # 1 fiducial + 2 EEG
+    assert_allclose(mon.get_positions()["ch_pos"]["c"], [6, 7, 8])
+    mon.drop_channels(ch for ch in ["b"])
+    assert mon.ch_names == ["c"]
+    mon.drop_channels(["c"])
+    assert mon.ch_names == []
+    assert len(_get_dig_eeg(mon.dig)) == 0
+    assert mon.remove_fiducials() is mon
+    assert len(mon.dig) == 0
+    with pytest.raises(ValueError, match="not found"):
+        mon.drop_channels("a")
+    with pytest.warns(RuntimeWarning, match="not found"):
+        mon.drop_channels("a", on_missing="warn")
+    mon.drop_channels("a", on_missing="ignore")
+
+
 def test_read_dig_localite(tmp_path):
     """Test reading Localite .csv file."""
     contents = """#,id,x,y,z
